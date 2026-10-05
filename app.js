@@ -21,6 +21,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const kinePanel = document.getElementById('kine-panel');
   const patientPanel = document.getElementById('patient-panel');
 
+  // Gestor Serie USB ESP32 (Web Serial API)
+  const serialMgr = new Esp32SerialManager();
+
+  // Elementos de autenticación de Kinesiólogo
+  const kineLoggedInfo = document.getElementById('kine-logged-info');
+  const kineLoggedName = document.getElementById('kine-logged-name');
+  const btnKineLogout = document.getElementById('btn-kine-logout');
+  const modalKineAuth = document.getElementById('modal-kine-auth');
+  const btnCloseAuthModal = document.getElementById('btn-close-auth-modal');
+  const formKineAuth = document.getElementById('form-kine-auth');
+  const authKineSelect = document.getElementById('auth-kine-select');
+  const authKinePass = document.getElementById('auth-kine-pass');
+  const authErrorMsg = document.getElementById('auth-error-msg');
+
+  // Elementos Hardware Serie USB ESP32 & PIC
+  const serialStatusBadge = document.getElementById('serial-status-badge');
+  const serialStatusDot = document.getElementById('serial-status-dot');
+  const serialStatusText = document.getElementById('serial-status-text');
+  const serialEepromSlot = document.getElementById('serial-eeprom-slot');
+  const btnSerialConnect = document.getElementById('btn-serial-connect');
+  const btnSerialConnectText = document.getElementById('btn-serial-connect-text');
+  const btnSerialSend = document.getElementById('btn-serial-send');
+  const serialUartText = document.getElementById('serial-uart-text');
+
   const muscleTooltip = document.getElementById('canvas-tooltip');
   const hudMuscleName = document.getElementById('hud-muscle-name');
   const hudMuscleZone = document.getElementById('hud-muscle-zone');
@@ -89,7 +113,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- GESTIÓN DE ROLES (Kinesiólogo vs Paciente) ---
+  // Popular selector de profesionales kinesiólogos en modal de autenticación
+  if (authKineSelect && window.KineStore.getProfessionals) {
+    authKineSelect.innerHTML = '';
+    window.KineStore.getProfessionals().forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.reg}) - ${p.specialty}`;
+      authKineSelect.appendChild(opt);
+    });
+  }
+
+  // --- GESTIÓN DE ROLES Y AUTENTICACIÓN ---
   function switchRole(role) {
     currentRole = role;
     window.KineStore.setRole(role);
@@ -102,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       kinePanel.classList.remove('hidden');
       patientPanel.classList.add('hidden');
+      updateKineAuthUI();
       // Activar por defecto el polo CH1 (+) para colocar o borrar con un solo toque
       activatePlacingTool(btnPlaceCh1Pos, 1, 'positive', false);
     } else {
@@ -120,7 +156,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  roleKineBtn.addEventListener('click', () => switchRole('kinesiologo'));
+  function openAuthModal() {
+    if (!modalKineAuth) return;
+    modalKineAuth.classList.remove('hidden');
+    modalKineAuth.classList.add('flex');
+    if (authKinePass) authKinePass.value = '';
+    if (authErrorMsg) authErrorMsg.classList.add('hidden');
+    setTimeout(() => { if (authKinePass) authKinePass.focus(); }, 100);
+  }
+
+  function closeAuthModal() {
+    if (!modalKineAuth) return;
+    modalKineAuth.classList.add('hidden');
+    modalKineAuth.classList.remove('flex');
+    if (authErrorMsg) authErrorMsg.classList.add('hidden');
+  }
+
+  if (btnCloseAuthModal) btnCloseAuthModal.addEventListener('click', closeAuthModal);
+
+  if (formKineAuth) {
+    formKineAuth.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const kineId = authKineSelect.value;
+      const pass = authKinePass.value;
+      const res = window.KineStore.authenticateKine(kineId, pass);
+      if (res.success) {
+        closeAuthModal();
+        updateKineAuthUI();
+        switchRole('kinesiologo');
+        showToast(`🔒 Acceso concedido: ${res.professional.name}`, 'info');
+      } else {
+        if (authErrorMsg) {
+          authErrorMsg.textContent = res.error;
+          authErrorMsg.classList.remove('hidden');
+        }
+      }
+    });
+  }
+
+  if (btnKineLogout) {
+    btnKineLogout.addEventListener('click', () => {
+      window.KineStore.logoutKine();
+      updateKineAuthUI();
+      switchRole('paciente');
+      showToast('Sesión de kinesiólogo cerrada.');
+    });
+  }
+
+  function updateKineAuthUI() {
+    if (window.KineStore.isKineAuth()) {
+      const activeKine = window.KineStore.getActiveKine();
+      if (kineLoggedName) kineLoggedName.textContent = activeKine.name;
+      if (kineLoggedInfo) {
+        kineLoggedInfo.classList.remove('hidden');
+        kineLoggedInfo.classList.add('flex');
+      }
+    } else {
+      if (kineLoggedInfo) {
+        kineLoggedInfo.classList.add('hidden');
+        kineLoggedInfo.classList.remove('flex');
+      }
+    }
+  }
+
+  roleKineBtn.addEventListener('click', () => {
+    if (window.KineStore.isKineAuth()) {
+      switchRole('kinesiologo');
+    } else {
+      openAuthModal();
+    }
+  });
+
   rolePatientBtn.addEventListener('click', () => switchRole('paciente'));
 
   // --- CALLBACKS DE ELIMINACIÓN Y COLOCACIÓN DE ELECTRODOS ---
@@ -251,6 +357,85 @@ document.addEventListener('DOMContentLoaded', () => {
     // Actualizar vista activa
     activeRequest = window.KineStore.getRequestById(targetReqId);
   });
+
+  // --- HARDWARE ESP32 & PIC16F887 (PUERTO SERIE USB) ---
+  function updateUartPreview() {
+    if (!serialUartText) return;
+    const slot = serialEepromSlot ? serialEepromSlot.value : '1';
+    const type = selectPrescType ? selectPrescType.value : 'TENS';
+    const freq = inputPrescFreq ? inputPrescFreq.value : '100';
+    const pulse = inputPrescPulse ? inputPrescPulse.value : '100';
+    const duration = inputPrescDuration ? inputPrescDuration.value : '20';
+    serialUartText.textContent = `SET,${slot},${type},${freq},${pulse},${duration}\\n`;
+  }
+
+  [selectPrescType, inputPrescFreq, inputPrescPulse, inputPrescDuration, serialEepromSlot].forEach(elem => {
+    if (elem) {
+      elem.addEventListener('input', updateUartPreview);
+      elem.addEventListener('change', updateUartPreview);
+    }
+  });
+  updateUartPreview();
+
+  serialMgr.onStateChange((state, details) => {
+    if (!serialStatusBadge) return;
+    if (state === 'connected') {
+      if (serialStatusDot) serialStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block';
+      serialStatusBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5';
+      if (serialStatusText) serialStatusText.textContent = details || 'Conectado a COM';
+      if (btnSerialConnectText) btnSerialConnectText.textContent = 'Desconectar';
+      showToast(`🔌 Conectado exitosamente por USB (${details}).`, 'info');
+    } else if (state === 'connecting') {
+      if (serialStatusDot) serialStatusDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block';
+      serialStatusBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-950/70 text-amber-300 border border-amber-500/40 flex items-center gap-1.5';
+      if (serialStatusText) serialStatusText.textContent = 'Conectando...';
+    } else {
+      if (serialStatusDot) serialStatusDot.className = 'w-2 h-2 rounded-full bg-slate-500 inline-block';
+      serialStatusBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+      if (serialStatusText) serialStatusText.textContent = 'Desconectado';
+      if (btnSerialConnectText) btnSerialConnectText.textContent = 'Conectar USB (COM)';
+    }
+  });
+
+  serialMgr.onDataReceived((data) => {
+    console.log('[ESP32 USB Respuesta]:', data);
+    showToast(`📩 ESP32 responde: ${data}`, 'info');
+  });
+
+  if (btnSerialConnect) {
+    btnSerialConnect.addEventListener('click', async () => {
+      if (serialMgr.isConnected) {
+        await serialMgr.disconnect();
+        showToast('Cable USB desconectado.');
+      } else {
+        try {
+          await serialMgr.connect(115200);
+        } catch (err) {
+          if (err.name !== 'NotFoundError') {
+            showToast(`Aviso Serie: ${err.message}`, 'warning');
+          }
+        }
+      }
+    });
+  }
+
+  if (btnSerialSend) {
+    btnSerialSend.addEventListener('click', async () => {
+      const slot = parseInt(serialEepromSlot ? serialEepromSlot.value : '1');
+      const type = selectPrescType.value;
+      const frequency = parseInt(inputPrescFreq.value) || 100;
+      const pulseWidth = parseInt(inputPrescPulse.value) || 100;
+      const duration = parseInt(inputPrescDuration.value) || 20;
+
+      const payload = await serialMgr.sendParameters({ slot, type, frequency, pulseWidth, duration });
+
+      if (serialMgr.isConnected) {
+        showToast(`⚡ Parámetros enviados por USB al ESP32 -> PIC guardará en Ranura ${slot} (EEPROM)`, 'info');
+      } else {
+        showToast(`ℹ️ Trama generada para Ranura ${slot}: "${payload.uartFrame.trim()}". (Conecta tu ESP32 por USB para enviar en vivo)`, 'info');
+      }
+    });
+  }
 
   // --- RENDERIZAR LISTA DE SOLICITUDES (Kinesiólogo) ---
   function renderRequestsList() {

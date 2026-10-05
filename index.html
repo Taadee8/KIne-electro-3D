@@ -45,17 +45,28 @@
     </div>
 
     <!-- SELECTOR DE ROL (Kinesiólogo vs Paciente) -->
-    <div class="flex items-center bg-slate-800/80 p-0.5 sm:p-1 rounded-xl border border-slate-700/80">
-      <button id="role-kine-btn" class="flex items-center gap-1 sm:gap-2 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all bg-sky-600 text-white shadow">
-        <i data-lucide="stethoscope" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
-        <span class="hidden sm:inline">Kinesiólogo / Terapeuta</span>
-        <span class="sm:hidden">Kinesiólogo</span>
-      </button>
-      <button id="role-patient-btn" class="flex items-center gap-1 sm:gap-2 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all text-slate-400 hover:text-slate-200">
-        <i data-lucide="user" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
-        <span class="hidden sm:inline">Paciente a tratar</span>
-        <span class="sm:hidden">Paciente</span>
-      </button>
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-slate-800/80 p-0.5 sm:p-1 rounded-xl border border-slate-700/80">
+        <button id="role-kine-btn" class="flex items-center gap-1 sm:gap-2 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all bg-sky-600 text-white shadow">
+          <i data-lucide="stethoscope" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          <span class="hidden sm:inline">Kinesiólogo / Terapeuta</span>
+          <span class="sm:hidden">Kinesiólogo</span>
+        </button>
+        <button id="role-patient-btn" class="flex items-center gap-1 sm:gap-2 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all text-slate-400 hover:text-slate-200">
+          <i data-lucide="user" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+          <span class="hidden sm:inline">Paciente a tratar</span>
+          <span class="sm:hidden">Paciente</span>
+        </button>
+      </div>
+
+      <!-- Info de Kinesiólogo Autenticado y Cerrar Sesión -->
+      <div id="kine-logged-info" class="hidden items-center gap-2 bg-slate-800/60 py-1 px-2.5 rounded-xl border border-sky-500/30">
+        <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+        <span id="kine-logged-name" class="text-[11px] font-bold text-sky-200 hidden md:inline">Lic. Martín Almada</span>
+        <button id="btn-kine-logout" class="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-red-400 transition" title="Cerrar sesión de Kinesiólogo">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
     </div>
 
     <!-- CONTROLES RÁPIDOS DE CÁMARA 3D -->
@@ -195,6 +206,50 @@
               <i data-lucide="send" class="w-4 h-4"></i>
               <span>Guardar y Enviar al Paciente</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Módulo de Transmisión por Cable USB a ESP32 & PIC16F887 -->
+        <div class="glass-panel p-3.5 rounded-xl border-sky-500/30 bg-gradient-to-b from-sky-950/20 to-slate-900/60">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="usb" class="w-4 h-4 text-sky-400"></i>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200">Hardware ESP32 & PIC (Cable USB)</h4>
+            </div>
+            <span id="serial-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+              <span id="serial-status-dot" class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
+              <span id="serial-status-text">Desconectado</span>
+            </span>
+          </div>
+
+          <!-- Selector de Ranura EEPROM para el PIC16F887 -->
+          <div class="mb-3">
+            <label class="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+              <span>Ranura EEPROM en PIC16F887:</span>
+              <span class="text-[10px] text-sky-400 font-normal">3 personalizadas</span>
+            </label>
+            <select id="serial-eeprom-slot" class="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs py-1.5 px-2.5 text-slate-200 focus:outline-none focus:border-sky-500">
+              <option value="1">Ranura 1 (Programa Personalizado A)</option>
+              <option value="2">Ranura 2 (Programa Personalizado B)</option>
+              <option value="3">Ranura 3 (Programa Personalizado C)</option>
+            </select>
+            <p class="text-[10px] text-slate-400 mt-1 italic">Sobrescribe solo el slot elegido en la EEPROM, preservando los 3 programas fijos de fábrica.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <button id="btn-serial-connect" class="py-2 px-3 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="usb" class="w-3.5 h-3.5 text-sky-400"></i>
+              <span id="btn-serial-connect-text">Conectar USB (COM)</span>
+            </button>
+            <button id="btn-serial-send" class="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/30 transition active:scale-95">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              <span>Transmitir por USB</span>
+            </button>
+          </div>
+
+          <!-- Monitor de Trama UART generada para PIC16F887 -->
+          <div class="p-2 rounded bg-black/60 border border-slate-800 text-[10px] font-mono overflow-x-auto whitespace-nowrap">
+            <span class="text-slate-400">Trama PIC (UART):</span> <span id="serial-uart-text" class="text-emerald-400 font-bold">SET,1,TENS,100,100,20\n</span>
           </div>
         </div>
 
@@ -394,12 +449,55 @@
     </div>
   </div>
 
+  <!-- MODAL: AUTENTICACIÓN / ACCESO KINESIÓLOGO -->
+  <div id="modal-kine-auth" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-sky-600/30 border border-sky-500/50 flex items-center justify-center text-sky-400">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-white">Acceso Profesional</h3>
+            <p class="text-[11px] text-slate-400">Ingreso exclusivo para Kinesiólogos</p>
+          </div>
+        </div>
+        <button id="btn-close-auth-modal" class="text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-kine-auth" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Seleccionar Profesional</label>
+          <select id="auth-kine-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs py-2 px-3 text-slate-100 focus:outline-none focus:border-sky-500">
+            <!-- Se llena dinámicamente -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Contraseña de Acceso</label>
+          <input id="auth-kine-pass" type="password" required placeholder="Ingresa tu clave (Por defecto: 1234)" class="w-full bg-slate-950 border border-slate-700 rounded-lg text-xs py-2 px-3 text-slate-100 focus:outline-none focus:border-sky-500">
+          <p class="text-[10px] text-sky-400 mt-1">Clave de demostración predeterminada: <strong>1234</strong></p>
+        </div>
+
+        <div id="auth-error-msg" class="hidden text-xs text-red-400 bg-red-950/40 border border-red-500/30 rounded-lg p-2 font-medium"></div>
+
+        <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="key" class="w-4 h-4"></i>
+          <span>Ingresar a Modo Profesional</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- Scripts principales -->
   <script src="vendor/lucide.min.js"></script>
   <script src="vendor/three.min.js"></script>
   <script src="vendor/OrbitControls.js"></script>
 
   <script src="database.js"></script>
+  <script src="serial_manager.js"></script>
   <script src="electrodes.js"></script>
   <script src="anatomy3d.js"></script>
   <script src="app.js"></script>

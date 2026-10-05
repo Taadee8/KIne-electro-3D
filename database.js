@@ -266,9 +266,15 @@ const INITIAL_REQUESTS = [
   }
 ];
 
+const KINE_PROFESSIONALS = [
+  { id: 'kine-1', name: 'Lic. Martín Almada', specialty: 'Kinesiología & Fisioterapia', reg: 'M.N. 4812', pass: '1234' },
+  { id: 'kine-2', name: 'Lic. Valeria Rossi', specialty: 'Rehabilitación Deportiva', reg: 'M.N. 7931', pass: '1234' },
+  { id: 'kine-3', name: 'Lic. Carlos Méndez', specialty: 'Neuro-rehabilitación', reg: 'M.N. 9104', pass: '1234' }
+];
+
 class KineDataStore {
   constructor() {
-    this.STORAGE_KEY = 'kine_electro_3d_data_v1';
+    this.STORAGE_KEY = 'kine_electro_3d_data_v2';
     this.state = this.load();
   }
 
@@ -282,7 +288,9 @@ class KineDataStore {
       console.warn('Error reading from localStorage, using initial mock data', e);
     }
     return {
-      currentRole: 'kinesiologo', // 'kinesiologo' o 'paciente'
+      currentRole: 'paciente', // Inicia en paciente por seguridad
+      isKineAuthenticated: false,
+      activeKineId: 'kine-1',
       activePatientId: 'req-2',
       requests: INITIAL_REQUESTS,
       customPrescriptions: {}
@@ -295,6 +303,36 @@ class KineDataStore {
     } catch (e) {
       console.error('Error saving to localStorage', e);
     }
+  }
+
+  getProfessionals() {
+    return KINE_PROFESSIONALS;
+  }
+
+  getActiveKine() {
+    return KINE_PROFESSIONALS.find(p => p.id === this.state.activeKineId) || KINE_PROFESSIONALS[0];
+  }
+
+  authenticateKine(kineId, password) {
+    const prof = KINE_PROFESSIONALS.find(p => p.id === kineId);
+    if (prof && prof.pass === password) {
+      this.state.isKineAuthenticated = true;
+      this.state.activeKineId = kineId;
+      this.state.currentRole = 'kinesiologo';
+      this.save();
+      return { success: true, professional: prof };
+    }
+    return { success: false, error: 'Contraseña incorrecta. (Clave por defecto: 1234)' };
+  }
+
+  logoutKine() {
+    this.state.isKineAuthenticated = false;
+    this.state.currentRole = 'paciente';
+    this.save();
+  }
+
+  isKineAuth() {
+    return !!this.state.isKineAuthenticated;
   }
 
   getRequests() {
