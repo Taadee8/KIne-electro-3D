@@ -427,12 +427,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const pulseWidth = parseInt(inputPrescPulse.value) || 100;
       const duration = parseInt(inputPrescDuration.value) || 20;
 
+      const progLetters = { 1: 'A', 2: 'B', 3: 'C' };
+      const progName = `Programa Personalizado ${progLetters[slot] || 'A'}`;
+
       const payload = await serialMgr.sendParameters({ slot, type, frequency, pulseWidth, duration });
 
       if (serialMgr.isConnected) {
-        showToast(`⚡ Parámetros enviados por USB al ESP32 -> PIC guardará en Ranura ${slot} (EEPROM)`, 'info');
+        showToast(`⚡ Parámetros enviados por USB al ESP32 -> REMA guardará en ${progName}`, 'info');
       } else {
-        showToast(`ℹ️ Trama generada para Ranura ${slot}: "${payload.uartFrame.trim()}". (Conecta tu ESP32 por USB para enviar en vivo)`, 'info');
+        showToast(`ℹ️ Trama generada para ${progName}: "${payload.uartFrame.trim()}". (Conecta tu ESP32 por USB para enviar en vivo)`, 'info');
       }
     });
   }
